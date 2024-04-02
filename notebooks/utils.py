@@ -556,65 +556,61 @@ def get_new_adjacent_blocks(edge_block_id: str, network_gdf: gpd.GeoDataFrame, g
     
     return new_adjacent_blocks
 
-def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame):
+def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
-    Function to dynamically create a network of blocks based on user inputs
+    Dynamically expands a network of blocks starting from an initial block ID, allowing
+    the user to select edge blocks in each round until no more selections are made.
     
     Parameters:
-    - initial_block_id: str, the ID of the block on the outer edge of the network.
-    - gdf: gpd.GeoDataFrame, the original GeoDataFrame of all blocks.
+    - initial_block_id: str - The ID of the first block in the network.
+    - gdf: gpd.GeoDataFrame - GeoDataFrame of all blocks with their geometries.
     
     Returns:
-    - gpd.GeoDataFrame of new adjacent blocks not already part of the network.
+    - network_gdf: gpd.GeoDataFrame - The final network of blocks as a GeoDataFrame,
+      including a 'round' column indicating the round each block was added.
     """
+
+    print("Origin block is {}: ".format(initial_block_id))
 
     # Initialize network with the first block and set 'round' column to 0
     network_gdf = gdf[gdf['block_id'] == initial_block_id].copy()
     network_gdf['round'] = 0  # Initial block is added in round 0
     
-    current_round = 1  # Start counting rounds from 1 for new blocks
+    current_round = 1
     edge_blocks = [initial_block_id]  # Initialize edge blocks list with the first block
 
     while True:
         new_edge_blocks = []
-        
+
         for block_id in edge_blocks:
-            # Get new adjacent blocks for each block on the current edge
             adjacent_blocks = get_new_adjacent_blocks(block_id, network_gdf, gdf)
             
             if not adjacent_blocks.empty:
-                # Assign the current round number to these new blocks
                 adjacent_blocks['round'] = current_round
-                
-                # Update the network with these new blocks
                 network_gdf = gpd.GeoDataFrame(pd.concat([network_gdf, adjacent_blocks], ignore_index=True))
-                
-                # Collect IDs of new edge blocks
                 new_edge_blocks.extend(adjacent_blocks['block_id'].tolist())
-        
-        # Display new edge blocks
-        print("New edge blocks for round {}: ".format(current_round), new_edge_blocks)
-        
+
         if not new_edge_blocks:
             print("No more new edge blocks to add. Network expansion complete.")
             break
 
-        # Ask the user to select new blocks to add to the edge or finish
+        print("New edge blocks for round {}: ".format(current_round), new_edge_blocks)
         selected_blocks_input = input("Enter block IDs to add to the network, separated by commas, or press enter to finish: ")
-        selected_blocks = selected_blocks_input.split(',') if selected_blocks_input else []
         
-        if not selected_blocks or selected_blocks == ['']:
-            break  # Exit if the user does not input new block IDs
-        
-        # Filter selected_blocks to ensure they are among the new_edge_blocks
-        edge_blocks = [block.strip() for block in selected_blocks if block.strip() in new_edge_blocks]
-        
+        if not selected_blocks_input.strip():
+            # Break the loop if input is empty, indicating the user wants to exit
+            return network_gdf
+            break
+
+        selected_blocks = [block.strip() for block in selected_blocks_input.split(',') if block.strip()]
+        edge_blocks = [block for block in selected_blocks if block in new_edge_blocks]
+
         if not edge_blocks:
             print("No valid new edge blocks selected. Exiting.")
             break
-        
-        current_round += 1  # Increment the round counter after each selection
-    
+
+        current_round += 1
+
     print("Final network consists of block IDs: ", network_gdf['block_id'].tolist())
     print("Round information: \n", network_gdf[['block_id', 'round']])
 
