@@ -570,12 +570,11 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
       including a 'round' column indicating the round each block was added.
     """
 
-    print("Origin block is {}: ".format(initial_block_id))
-
     # Initialize network with the first block and set 'round' column to 0
+
     network_gdf = gdf[gdf['block_id'] == initial_block_id].copy()
     network_gdf['round'] = 0  # Initial block is added in round 0
-    
+
     current_round = 1
     edge_blocks = [initial_block_id]  # Initialize edge blocks list with the first block
 
@@ -599,7 +598,6 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
         
         if not selected_blocks_input.strip():
             # Break the loop if input is empty, indicating the user wants to exit
-            return network_gdf
             break
 
         selected_blocks = [block.strip() for block in selected_blocks_input.split(',') if block.strip()]
@@ -613,7 +611,8 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
 
     print("Final network consists of block IDs: ", network_gdf['block_id'].tolist())
     print("Round information: \n", network_gdf[['block_id', 'round']])
-
+    print("Preparing to return network_gdf")  # Debug print
+    return network_gdf
 
 # Define a function that plots a block and its adjacent blocks on the same plot
 def plot_block_and_adjacent(block_id: str, gdf: gpd.GeoDataFrame) -> None:
