@@ -26,6 +26,8 @@ from shapely.geometry import (
     MultiPolygon
 )
 
+import osmnx as ox
+
 import ee
 # Authenticate and initialize Earth Engine API
 #ee.Authenticate()  # Only required once
@@ -570,10 +572,12 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
       including a 'round' column indicating the round each block was added.
     """
 
-    # Initialize network with the first block and set 'round' column to 0
+    # Print the initial block ID
+    print("Starting network expansion from block ID (origin): ", initial_block_id)
 
+    # Initialize network with the first block and set 'round' column to 0
     network_gdf = gdf[gdf['block_id'] == initial_block_id].copy()
-    network_gdf['round'] = 0  # Initial block is added in round 0
+    network_gdf['round'] = '0'  # Initial block is added in round 0
 
     current_round = 1
     edge_blocks = [initial_block_id]  # Initialize edge blocks list with the first block
@@ -585,7 +589,7 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
             adjacent_blocks = get_new_adjacent_blocks(block_id, network_gdf, gdf)
             
             if not adjacent_blocks.empty:
-                adjacent_blocks['round'] = current_round
+                adjacent_blocks['round'] = str(current_round)
                 network_gdf = gpd.GeoDataFrame(pd.concat([network_gdf, adjacent_blocks], ignore_index=True))
                 new_edge_blocks.extend(adjacent_blocks['block_id'].tolist())
 
@@ -611,7 +615,6 @@ def expand_network(initial_block_id: str, gdf: gpd.GeoDataFrame) -> gpd.GeoDataF
 
     print("Final network consists of block IDs: ", network_gdf['block_id'].tolist())
     print("Round information: \n", network_gdf[['block_id', 'round']])
-    print("Preparing to return network_gdf")  # Debug print
     return network_gdf
 
 # Define a function that plots a block and its adjacent blocks on the same plot
@@ -637,3 +640,77 @@ def plot_block_and_adjacent(block_id: str, gdf: gpd.GeoDataFrame) -> None:
         ax.text(row.geometry.centroid.x, row.geometry.centroid.y, row['block_id'], fontsize=8, ha='center')
     plt.title(f"Block {block_id} and its adjacent blocks")
     plt.show()
+
+def plot_osm_base(gdf):
+    """
+    Creates a static map for the bounding box of gdf using OSMnx
+
+    Parameters:
+    - north, south, east, west: coordinates of the bounding box.
+
+    The map will include streets and some key place names.
+    """
+    # Configure OSMnx to download data from OpenStreetMap and plot it without displaying it
+    ox.config(use_cache=True, log_console=True)
+    
+    # Define bbox and add buffer
+    perim = gpd.GeoDataFrame(geometry=[gdf.unary_union], crs='epsg:4326')
+    #perim = perim.to_crs(crs = 3857)
+    bbox = perim.buffer(0.004).bounds
+    # bbox as minx, miny, maxx, maxy
+    bbox = bbox.values[0].tolist()
+    # Bbox as n,s,e,w
+    bbox = (bbox[3], bbox[1], bbox[2], bbox[0])
+    
+    print(bbox)
+
+    # Download the street network within the bounding box
+    G = ox.graph_from_bbox(bbox = bbox, network_type='all')
+    
+    # Download building geometries within the bounding box
+    buildings = ox.features_from_bbox(bbox = bbox, tags={'building': True})
+    
+     # Download landuse
+    try:
+        landuse_commercial = ox.features_from_bbox(bbox = bbox, tags={"landuse": ["retail", "commercial"]})
+    except:
+        landuse_commercial = None
+        pass
+    
+    try: 
+        landuse_industrial = ox.features_from_bbox(bbox = bbox, tags={"landuse": ["industrial", "construction"]})
+    except:
+        landuse_industrial = None
+        pass
+
+    try: 
+        landuse_institutional = ox.features_from_bbox(bbox = bbox, tags={"landuse": ["institutional", "public"]})
+    except:
+        landuse_institutional = None
+        pass
+
+    try: 
+        landuse_water = ox.features_from_bbox(bbox = bbox, tags={"natural": ["water"]})
+    except:
+        landuse_water = None
+        pass
+    
+    # Initialize the plot
+    fig, ax = ox.plot_graph(G, node_size=0, edge_linewidth=0.5, show=False, close=False, bbox = bbox)
+
+    # Plot land use categories
+    if landuse_commercial is not None:
+        landuse_commercial.plot(ax = ax, facecolor = 'red', alpha = 0.7)
+    if landuse_industrial is not None:
+        landuse_industrial.plot(ax = ax, facecolor = 'grey', alpha = 0.7)
+    if landuse_institutional is not None:
+        landuse_institutional.plot(ax = ax, facecolor = 'purple', alpha = 0.7)
+    if landuse_water is not None:
+        landuse_water.plot(ax = ax, facecolor = 'blue', alpha = 0.7)
+
+    # Plot building geometries
+    buildings.plot(ax=ax, facecolor='khaki', alpha=0.7)
+
+    return(ax)
+
+    
