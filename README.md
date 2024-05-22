@@ -7,7 +7,7 @@ This repository contains all of the data and code necessary to reproduce the "St
 
 **Data and Code Availability Statement**
 
-The primary data sets used in this analysis are available publicly from the [GADM](), [Humanitarian data exchange](), and [Google Earth Engine](). 
+The primary data sets used in this analysis are available publicly from the [GADM](https://gadm.org), [Humanitarian data exchange](https://data.humdata.org), and [Google Earth Engine](https://earthengine.google.com). 
 
 **Computational requirements**
 This analysis was conducted using Python (v3.12.2) and VSCode (v1.87). 
